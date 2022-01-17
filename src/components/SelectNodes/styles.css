@@ -1,0 +1,24 @@
+.hold-nodes {
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    border: 2px solid #F3F6F9;
+    padding: 15px 20px;
+    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.list-nodes {
+    width: 195px;
+    height: 770px;
+    margin-right: 2px;
+    background-color: white;
+}
+
+.list-row {
+    display: flex;
+
+}
+
+.draggable {
+    flex: 1;
+}

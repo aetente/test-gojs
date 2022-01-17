@@ -1,0 +1,16 @@
+
+.content {
+  display: flex;
+}
+
+.hold-content {
+  padding: 40px;
+}
+
+.content-title {
+  font-family: "Work Sans";
+font-style: normal;
+font-weight: 800;
+font-size: 36px;
+line-height: 64px;
+}
