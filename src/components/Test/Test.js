@@ -4,18 +4,15 @@ import SelectNodes from "../SelectNodes/SelectNodes";
 import "./styles.css";
 
 class Test extends Component {
-  constructor() {
-    super();
-  }
   render() {
     return (
-        <div className="hold-content">
-          <div className="content-title" >New Strategy</div>
-          <div className="content">
-            <SelectNodes />
-            <Diagram />
-          </div>
+      <div className="hold-content">
+        <div className="content-title" >New Strategy</div>
+        <div className="content">
+          <SelectNodes />
+          <Diagram />
         </div>
+      </div>
     );
   }
 }

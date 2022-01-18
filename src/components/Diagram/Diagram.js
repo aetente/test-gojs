@@ -10,6 +10,23 @@ var key = 4;
 
 // ...
 
+function makePort(name, align, spot, output, input) {
+  const $ = go.GraphObject.make;
+  // the port is basically just a small transparent circle
+  return $(go.Shape, "Circle",
+    {
+      desiredSize: new go.Size(7, 7),
+      alignment: align,  // align the port on the main Shape
+      alignmentFocus: align,  // just inside the Shape
+      portId: name,  // declare this object to be a "port"
+      fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
+      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
+      cursor: "pointer",  // show a different cursor to indicate potential link point
+      fromEndSegmentLength: 30,
+      toEndSegmentLength: 30
+    });
+}
+
 /**
  * Diagram initialization method, which is passed to the ReactDiagram component.
  * This method is responsible for making the diagram and initializing the model and any templates.
@@ -25,21 +42,32 @@ function initDiagram() {
         'undoManager.isEnabled': true,  // must be set to allow for model change listening
         // 'undoManager.maxHistoryLength': 0,  // uncomment disable undo/redo functionality
         'clickCreatingTool.archetypeNodeData': { text: 'new node', color: 'lightblue' },
+        allowMove: false,
         model: $(go.GraphLinksModel,
           {
             linkFromPortIdProperty: "fromPort",  // required information:
             linkToPortIdProperty: "toPort",
             linkKeyProperty: 'key'  // IMPORTANT! must be defined for merges and data sync when using GraphLinksModel
           }),
-          layout: $(go.TreeLayout, { angle: 90, layerSpacing:35})
+        layout: $(go.TreeLayout, {
+          angle: 90,
+          // spacing: new go.Size(30, 30),
+          arrangementSpacing: new go.Size(40, 40),
+          // sorting: go.TreeLayout.SortingReverse
+        })
+        // layout: $(go.LayeredDigraphLayout)
       });
 
   // define a simple Node template
   diagram.nodeTemplate =
-    $(go.Node,  // the Shape will go around the TextBlock
+    $(go.Node, go.Panel.Spot,  // the Shape will go around the TextBlock
       new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
+      {
+        avoidableMargin: new go.Margin(2, 2, 2, 2),
+      },
       $(go.Shape, 'Diamond',
-        { name: 'SHAPE',
+        {
+          name: 'SHAPE',
           fill: 'white',
           strokeWidth: 0,
           width: 90,
@@ -47,68 +75,77 @@ function initDiagram() {
           fromLinkable: true, fromLinkableDuplicates: true,
           toLinkable: true, toLinkableDuplicates: true
         },
-        
+
         // Shape.fill is bound to Node.data.color
         new go.Binding('fill', 'color')),
-      // $(go.Panel, "Table",
-      //   $(go.RowColumnDefinition,
-      //     { column: 0, alignment: go.Spot.Left, width: 30}),
-      //   $(go.RowColumnDefinition,
-      //     { column: 2, alignment: go.Spot.Right, width: 30 }),
-      //   $(go.Panel, "Horizontal",
-      //     { column: 0, row: 1, rowSpan: 2 },
-      //     $(go.Shape, "Circle",  // the "A" port
-      //       { width: 6, height: 6, portId: "A", toSpot: go.Spot.Left,
-      //         toLinkable: true, fromLinkable: true, toMaxLinks: 1 }),  // allow user-drawn links from here
-      //   ),
-      //   $(go.Panel, "Horizontal",
-      //     { column: 2, row: 1, rowSpan: 2 },
-      //     $(go.Shape, "Circle",
-      //       { width: 6, height: 6, portId: "B", fromSpot: go.Spot.Right,
-      //       toLinkable: true, fromLinkable: true, toMaxLinks: 1 })  // allow user-drawn links to here
-      //   )
-      // ),
-      $(go.Shape, "Circle",
-      { width: 6, height: 6, portId: "top-port", position: new go.Point(42.5, 0),
-        toLinkable: true, fromLinkable: true, toMaxLinks: 1 }),
-      $(go.Shape, "Circle",
-            { width: 6, height: 6, portId: "left-port", position: new go.Point(0, 42.5),
-              toLinkable: true, fromLinkable: true, toMaxLinks: 1 }),
-      $(go.Shape, "Circle",
-            { width: 6, height: 6, portId: "right-port", position: new go.Point(85, 42.5),
-              toLinkable: true, fromLinkable: true, toMaxLinks: 1 }),
-      $(go.Shape, "Circle",
-            { width: 6, height: 6, portId: "bottom-port", position: new go.Point(42.5, 85),
-              toLinkable: true, fromLinkable: true, toMaxLinks: 1 }),
       $(go.TextBlock,
-        { margin: 8,
+        {
+          margin: 8,
           position: new go.Point(15, 30)
           // editable: true,
         },  // some room around the text
         new go.Binding('text').makeTwoWay()
-      )
+      ),
+
+      makePort("T", go.Spot.Top, go.Spot.TopSide, false, true),
+      makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
+      makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
+      makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, false)
     );
 
-    diagram.linkTemplate =
-      $(go.Link,
-        {
-          routing: go.Link.Orthogonal,
-          corner: 5,
-          relinkableFrom: true,
-          relinkableTo: true
-        },
-        $(go.Shape, // the link's path shape
-          { strokeWidth: 3, stroke: "#555" }),
-          $(go.Shape,
-            { toArrow: "Standard", stroke: null })
-      );
+  diagram.linkTemplate =
+    $(go.Link,
+      {
+        routing: go.Link.AvoidsNodes,
+        // curve: go.Link.JumpOver,
+        corner: 5,
+        relinkableFrom: true,
+        relinkableTo: true
+      },
+      $(go.Shape, // the link's path shape
+        { strokeWidth: 3, stroke: "#555" }),
+      $(go.Shape,
+        { toArrow: "Standard", stroke: null })
+    );
 
-      diagram.grid =
-        $(go.Panel, "Grid",  // or "Grid"
-          { gridCellSize: new go.Size(25, 25) },
-          $(go.Shape, "LineH", { interval: 1, strokeDashArray: [1, 16] }),
-          // $(go.Shape, "LineV", { interval: 1, strokeDashArray: [1, 16] }),
-        );
+  // diagram.linkTemplate =
+  //   $(go.Link,  // the whole link panel
+  //     { selectable: true },
+  //     { relinkableFrom: true, relinkableTo: true, reshapable: true },
+  //     {
+  //       routing: go.Link.AvoidsNodes,
+  //       curve: go.Link.JumpOver,
+  //       corner: 5,
+  //       toShortLength: 4
+  //     },
+  //     new go.Binding("points").makeTwoWay(),
+  //     $(go.Shape,  // the link path shape
+  //       { isPanelMain: true, strokeWidth: 2 }),
+  //     $(go.Shape,  // the arrowhead
+  //       { toArrow: "Standard", stroke: null }),
+  //     $(go.Panel, "Auto",
+  //       new go.Binding("visible", "isSelected").ofObject(),
+  //       $(go.Shape, "RoundedRectangle",  // the link shape
+  //         { fill: "#F8F8F8", stroke: null }),
+  //       $(go.TextBlock,
+  //         {
+  //           textAlign: "center",
+  //           font: "10pt helvetica, arial, sans-serif",
+  //           stroke: "#919191",
+  //           margin: 2,
+  //           minSize: new go.Size(10, NaN),
+  //           editable: true
+  //         },
+  //         new go.Binding("text").makeTwoWay())
+  //     )
+  //   );
+
+  diagram.grid =
+    $(go.Panel, "Grid",  // or "Grid"
+      { gridCellSize: new go.Size(20, 20) },
+      $(go.Shape, "LineH", { interval: 1, strokeDashArray: [1, 16] }),
+      // $(go.Shape, "LineV", { interval: 1, strokeDashArray: [1, 16] }),
+    );
 
   return diagram;
 }
@@ -153,6 +190,7 @@ export default function Diagram() {
   const dragStart = useCallback(event => {
     if (event.target.className !== "draggable") return;
     event.dataTransfer.setData("text", event.target.textContent);
+    event.dataTransfer.setData("element", event.target);
   }, []);
 
   const dragEnter = useCallback(event => {
@@ -165,8 +203,8 @@ export default function Diagram() {
     if (event.target.parentNode === myDiagram.div) {
       let can = event.target;
       let pixelratio = myDiagram.computePixelRatio();
-      
-      
+
+
 
       // if the target is not the canvas, we may have trouble, so just quit:
       if (!(can instanceof HTMLCanvasElement)) return;
@@ -198,9 +236,10 @@ export default function Diagram() {
     event.preventDefault();
     if (!diagramRef.current) return;
     let myDiagram = diagramRef.current.getDiagram();
+    let dragged = event.dataTransfer.getData("element");
     if (event.target.parentNode === myDiagram.div) {
       let can = event.target;
-      let pixelratio = window.PIXELRATIO;
+      let pixelratio = myDiagram.computePixelRatio();
 
       // if the target is not the canvas, we may have trouble, so just quit:
       if (!(can instanceof HTMLCanvasElement)) return;
@@ -213,9 +252,11 @@ export default function Diagram() {
       // TODO recieve information from the element you drag
       // let mx = event.clientX - bbox.left * ((can.width / pixelratio) / bbw) - dragged.offsetX;
       // let my = event.clientY - bbox.top * ((can.height / pixelratio) / bbh) - dragged.offsetY;
+      // console.log(dragged.width)
+      // console.log(mx)
       let mx = event.clientX - bbox.left * ((can.width / pixelratio) / bbw);
       let my = event.clientY - bbox.top * ((can.height / pixelratio) / bbh);
-      
+
       let point = myDiagram.transformViewToDoc(new go.Point(mx, my));
       myDiagram.startTransaction('new node');
       // myDiagram.model.addNodeData({
@@ -224,12 +265,12 @@ export default function Diagram() {
       //   color: "lightyellow"
       // });
       //TODO weird animations when using setNodes to add nodes
-      
+
       addNode({
-          key,
-          location: point,
-          text: event.dataTransfer.getData('text'),
-          color: "lightyellow"
+        key,
+        location: point,
+        text: event.dataTransfer.getData('text'),
+        color: "lightyellow"
       });
       myDiagram.commitTransaction('new node');
       key += 1;
@@ -248,10 +289,10 @@ export default function Diagram() {
     window.addEventListener("dragover", dragOver);
     window.addEventListener("drop", dragDrop);
     return () => {
-        window.removeEventListener("dragstart", dragStart);
-        window.removeEventListener("dragenter", dragEnter);
-        window.removeEventListener("dragover", dragOver);
-        window.removeEventListener("drop", dragDrop);
+      window.removeEventListener("dragstart", dragStart);
+      window.removeEventListener("dragenter", dragEnter);
+      window.removeEventListener("dragover", dragOver);
+      window.removeEventListener("drop", dragDrop);
     };
   }, [dragStart, dragEnter, dragOver, dragDrop]);
 
