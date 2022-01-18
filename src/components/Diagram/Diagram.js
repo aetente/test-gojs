@@ -194,6 +194,8 @@ export default function Diagram() {
 
   const [nodeDataToChange, setNodeDataToChange] = useState({})
 
+  const isNewNodeAdded = useHasChanged(nodes)
+
   const diagramRef = useRef(null);
 
   const addNode = (newNode) => setNodes(nodes => [...nodes, newNode])
@@ -225,14 +227,13 @@ export default function Diagram() {
   const showPopup = (obj, diagram) => {
     if (obj !== null) {
       let node = obj.part;
-      let e = diagram.lastInput;
-      updateInfoBox(e.viewPoint, node.data);
+      updateInfoBox(node.location, node.data);
     }
   }
 
-  const updateInfoBox = (mousePt, data) => {
+  const updateInfoBox = (coordsVal, data) => {
     setIsPopupVisible(true);
-    setPopupCoords(mousePt);
+    setPopupCoords(coordsVal);
     setNodeDataToChange(data);
   }
 
@@ -298,6 +299,12 @@ export default function Diagram() {
 
       let point = myDiagram.transformViewToDoc(new go.Point(mx, my));
       myDiagram.startTransaction('new node');
+      let newNode = {
+        key,
+        location: point,
+        text: event.dataTransfer.getData('text'),
+        color: "lightyellow"
+      };
       // myDiagram.model.addNodeData({
       //   location: point,
       //   text: event.dataTransfer.getData('text'),
@@ -305,17 +312,9 @@ export default function Diagram() {
       // });
       //TODO weird animations when using setNodes to add nodes
 
-      addNode({
-        key,
-        location: point,
-        text: event.dataTransfer.getData('text'),
-        color: "lightyellow"
-      });
+      addNode(newNode);
       myDiagram.commitTransaction('new node');
       key += 1;
-
-      // remove dragged element from its old location
-      // if (remove.checked) dragged.parentNode.removeChild(dragged);
     }
 
     // If we were using drag data, we could get it here, ie:
@@ -323,17 +322,28 @@ export default function Diagram() {
   }, []);
 
   useEffect(() => {
+
+    if (diagramRef.current && isNewNodeAdded) {
+      setTimeout(() => {
+        let myDiagram = diagramRef.current.getDiagram();
+        let obj = myDiagram.findNodeForKey(key - 1);
+        showPopup(obj, myDiagram);
+      }, 500)
+    }
+
+
     window.addEventListener("dragstart", dragStart);
     window.addEventListener("dragenter", dragEnter);
     window.addEventListener("dragover", dragOver);
     window.addEventListener("drop", dragDrop);
+
     return () => {
       window.removeEventListener("dragstart", dragStart);
       window.removeEventListener("dragenter", dragEnter);
       window.removeEventListener("dragover", dragOver);
       window.removeEventListener("drop", dragDrop);
     };
-  }, [dragStart, dragEnter, dragOver, dragDrop]);
+  });
 
   return (
     <div>
@@ -353,4 +363,17 @@ export default function Diagram() {
       />
     </div>
   );
+}
+
+const useHasChanged = (val) => {
+  const prevVal = usePrevious(val)
+  return prevVal && val && (prevVal.length < val.length)
+}
+
+const usePrevious = (value) => {
+  const ref = useRef();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
 }

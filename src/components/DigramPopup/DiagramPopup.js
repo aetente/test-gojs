@@ -1,14 +1,18 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import "./styles.css";
 
+ //TODO find the better way to find offsets
+const diagramOffsetX = 700;
+const diagramOffsetY = 180;
+
 export default function DiagramPopup(props) {
     const inputRef = useRef(null)
     return (
         <div
             className="hold-popup"
             style={{
-                left: props.popupCoords.x + 250 || 0, //TODO probably got the wrong coords
-                top: props.popupCoords.y || 0
+                left: props.popupCoords.x + diagramOffsetX || 0,
+                top: props.popupCoords.y + diagramOffsetY || 0
             }}
         >
             <div>
