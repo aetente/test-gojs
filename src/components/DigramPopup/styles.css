@@ -1,0 +1,9 @@
+.hold-popup {
+    position: absolute;
+    width: fit-content;
+    height: fit-content;
+    background-color: #222222;
+    z-index: 999;
+    box-shadow: 5px 10px 8px #888888;
+    padding: 10px
+}

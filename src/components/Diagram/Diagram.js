@@ -4,6 +4,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import * as go from 'gojs';
 import { ReactDiagram } from 'gojs-react';
 
+import DiagramPopup from '../DigramPopup/DiagramPopup';
+
 import './styles.css';  // contains .diagram-component CSS
 
 var key = 4;
@@ -20,9 +22,9 @@ function makePort(name, align, spot, output, input) {
       alignmentFocus: align,  // just inside the Shape
       portId: name,  // declare this object to be a "port"
       fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
-      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
+      fromLinkable: true, toLinkable: true,  // declare whether the user may draw links to/from here
       cursor: "pointer",  // show a different cursor to indicate potential link point
-      fromEndSegmentLength: 30,
+      fromEndSegmentLength: 30, // make link line turn to connector only from the distance not closer than 30px
       toEndSegmentLength: 30
     });
 }
@@ -32,7 +34,7 @@ function makePort(name, align, spot, output, input) {
  * This method is responsible for making the diagram and initializing the model and any templates.
  * The model's data should not be set here, as the ReactDiagram component handles that via the other props.
  */
-function initDiagram() {
+function initDiagram(clickNode) {
   const $ = go.GraphObject.make;
   // set your license key here before creating the diagram: go.Diagram.licenseKey = "...";
   const diagram =
@@ -49,10 +51,12 @@ function initDiagram() {
             linkToPortIdProperty: "toPort",
             linkKeyProperty: 'key'  // IMPORTANT! must be defined for merges and data sync when using GraphLinksModel
           }),
-        layout: $(go.TreeLayout, {
-          angle: 90,
+        layout: $(go.LayeredDigraphLayout, {
+          // angle: 90,
           // spacing: new go.Size(30, 30),
-          arrangementSpacing: new go.Size(40, 40),
+          // arrangementSpacing: new go.Size(40, 40),
+          columnSpacing: 30,
+          layerSpacing: 30,
           // sorting: go.TreeLayout.SortingReverse
         })
         // layout: $(go.LayeredDigraphLayout)
@@ -64,6 +68,7 @@ function initDiagram() {
       new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
       {
         avoidableMargin: new go.Margin(2, 2, 2, 2),
+        click: clickNode,
       },
       $(go.Shape, 'Diamond',
         {
@@ -177,15 +182,28 @@ function highlight(node, diagramRef) {
 export default function Diagram() {
 
   const [nodes, setNodes] = useState([
-    { key: 0, text: 'Alpha', color: 'lightblue', loc: '0 0' },
-    { key: 1, text: 'Beta', color: 'orange', loc: '150 0' },
-    { key: 2, text: 'Gamma', color: 'lightgreen', loc: '0 150' },
-    { key: 3, text: 'Delta', color: 'pink', loc: '150 150' }
+    { key: 0, text: 'Alpha', color: 'lightblue' },
+    { key: 1, text: 'Beta', color: 'orange' },
+    { key: 2, text: 'Gamma', color: 'lightgreen' },
+    { key: 3, text: 'Delta', color: 'pink' }
   ]);
+
+  const [isPopupVisible, setIsPopupVisible] = useState(false);
+
+  const [popupCoords, setPopupCoords] = useState({ x: 0, y: 0 })
+
+  const [nodeDataToChange, setNodeDataToChange] = useState({})
 
   const diagramRef = useRef(null);
 
   const addNode = (newNode) => setNodes(nodes => [...nodes, newNode])
+
+  const changeNode = (newNode) => {
+    let indexOfNodeToReplace = nodes.findIndex(node => node.key === newNode.key);
+    let copyNodes = [...nodes];
+    copyNodes.splice(indexOfNodeToReplace, 1, newNode);
+    setNodes(copyNodes);
+  }
 
   const dragStart = useCallback(event => {
     if (event.target.className !== "draggable") return;
@@ -196,6 +214,27 @@ export default function Diagram() {
   const dragEnter = useCallback(event => {
     event.preventDefault();
   }, []);
+
+  const clickNode = (event, obj) => {
+    if (!diagramRef.current) return;
+    let myDiagram = diagramRef.current.getDiagram();
+    if (event === undefined) event = myDiagram.lastInput;
+    showPopup(obj, myDiagram)
+  }
+
+  const showPopup = (obj, diagram) => {
+    if (obj !== null) {
+      let node = obj.part;
+      let e = diagram.lastInput;
+      updateInfoBox(e.viewPoint, node.data);
+    }
+  }
+
+  const updateInfoBox = (mousePt, data) => {
+    setIsPopupVisible(true);
+    setPopupCoords(mousePt);
+    setNodeDataToChange(data);
+  }
 
   const dragOver = useCallback(event => {
     if (!diagramRef.current) return;
@@ -236,7 +275,7 @@ export default function Diagram() {
     event.preventDefault();
     if (!diagramRef.current) return;
     let myDiagram = diagramRef.current.getDiagram();
-    let dragged = event.dataTransfer.getData("element");
+
     if (event.target.parentNode === myDiagram.div) {
       let can = event.target;
       let pixelratio = myDiagram.computePixelRatio();
@@ -298,9 +337,16 @@ export default function Diagram() {
 
   return (
     <div>
+      {isPopupVisible &&
+        <DiagramPopup
+          popupCoords={popupCoords}
+          nodeDataToChange={nodeDataToChange}
+          setIsPopupVisible={setIsPopupVisible}
+          changeNode={changeNode}
+        />}
       <ReactDiagram
         ref={diagramRef}
-        initDiagram={initDiagram}
+        initDiagram={() => initDiagram(clickNode)}
         divClassName='diagram-component'
         nodeDataArray={nodes}
         onModelChange={handleModelChange}
