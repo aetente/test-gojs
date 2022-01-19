@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import "./styles.css";
 
- //TODO find the better way to find offsets
+//TODO find the better way to find offsets
 const diagramOffsetX = 700;
 const diagramOffsetY = 180;
 
@@ -25,7 +25,8 @@ export default function DiagramPopup(props) {
                 />
                 <button
                     onClick={() => {
-                        let newNode = {...props.nodeDataToChange, text: inputRef.current.value};
+                        let newNode = { ...props.nodeDataToChange, text: inputRef.current.value };
+                        delete newNode.loc; // TODO this is weird that it has to be done
                         props.changeNode(newNode);
                         props.setIsPopupVisible(false);
                     }}

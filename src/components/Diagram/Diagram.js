@@ -19,6 +19,7 @@ function makePort(name, align, spot, output, input) {
   return $(go.Shape, "Circle",
     {
       desiredSize: new go.Size(7, 7),
+      fill: 'white',
       stretch: (horizontal ? go.GraphObject.Horizontal : go.GraphObject.Vertical),
       alignment: align,  // align the port on the main Shape
       alignmentFocus: align,  // just inside the Shape
@@ -26,8 +27,8 @@ function makePort(name, align, spot, output, input) {
       fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
       fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
       cursor: "pointer",  // show a different cursor to indicate potential link point
-      fromEndSegmentLength: 30, // make link line turn to connector only from the distance not closer than 30px
-      toEndSegmentLength: 30
+      fromEndSegmentLength: 15, // make link line turn to connector only from the distance not closer than 30px
+      toEndSegmentLength: 15
     });
 }
 
@@ -36,17 +37,23 @@ function makePort(name, align, spot, output, input) {
  * This method is responsible for making the diagram and initializing the model and any templates.
  * The model's data should not be set here, as the ReactDiagram component handles that via the other props.
  */
-function initDiagram(clickNode) {
+function initDiagram(clickNode, catchLinkEvent) {
   const $ = go.GraphObject.make;
   // set your license key here before creating the diagram: go.Diagram.licenseKey = "...";
   const diagram =
     $(go.Diagram,
       {
-        // 'animationManager.isInitial': false,
         'undoManager.isEnabled': true,  // must be set to allow for model change listening
         // 'undoManager.maxHistoryLength': 0,  // uncomment disable undo/redo functionality
         'clickCreatingTool.archetypeNodeData': { text: 'new node', color: 'lightblue' },
+        'draggingTool.isGridSnapEnabled': true,
+        // isTreePathToChildren: false,
         // allowMove: false,
+        LinkDrawn: (event) => {
+          // console.log("LINK", event.subject.part.data)
+          catchLinkEvent(event);
+        },
+        contentAlignment: go.Spot.Center,
         model: $(go.GraphLinksModel,
           {
             linkFromPortIdProperty: "fromPort",  // required information:
@@ -54,23 +61,18 @@ function initDiagram(clickNode) {
             linkKeyProperty: 'key'  // IMPORTANT! must be defined for merges and data sync when using GraphLinksModel
           }),
         layout: $(go.TreeLayout, {
-          angle: 270,
-          arrangementSpacing: new go.Size(50, 50),
-          nodeSpacing: 50,
+          angle: 90,
+          arrangementSpacing: new go.Size(60, 60),
+          nodeSpacing: 60,
           setsPortSpot: false,
-          setsChildPortSpot: false
-          // spacing: new go.Size(30, 30),
-          // setsPortSpots: false,
-          // columnSpacing: 30,
-          // layerSpacing: 30, 
-          // sorting: go.TreeLayout.SortingReverse
-          // wrappingColumn: 2
+          setsChildPortSpot: false,
+          layerStyle: go.TreeLayout.LayerUniform,
+          treeStyle: go.TreeLayout.StyleLayered,
         })
-        // layout: $(go.LayeredDigraphLayout)
       });
 
   // define a simple Node template
-  diagram.nodeTemplate =
+  diagram.nodeTemplateMap.add("",
     $(go.Node, go.Panel.Spot,  // the Shape will go around the TextBlock
       new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
       {
@@ -104,24 +106,77 @@ function initDiagram(clickNode) {
       makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
       makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
       makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, true)
-    );
+    ));
 
+  diagram.nodeTemplateMap.add("action",
+    $(go.Node, go.Panel.Spot,  // the Shape will go around the TextBlock
+      new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
+      {
+        avoidableMargin: new go.Margin(2, 2, 2, 2),
+        click: clickNode,
+        locationSpot: go.Spot.Center
+      },
+      $(go.Shape, 'Rectangle',
+        {
+          name: 'SHAPE',
+          fill: 'white',
+          strokeWidth: 0,
+          width: 90,
+          height: 45,
+          fromLinkable: true, fromLinkableDuplicates: true,
+          toLinkable: true, toLinkableDuplicates: true
+        },
 
-  // diagram.linkTemplate =
-  //   $(go.Link,
-  //     {
-  //       routing: go.Link.AvoidsNodes,
-  //       // curve: go.Link.JumpOver,
-  //       corner: 5,
-  //       relinkableFrom: true,
-  //       relinkableTo: true, 
-  //       toShortLength: 4
-  //     },
-  //     $(go.Shape, // the link's path shape
-  //       { strokeWidth: 3, stroke: "#555" }),
-  //     $(go.Shape,
-  //       { toArrow: "Standard", stroke: null })
-  //   );
+        // Shape.fill is bound to Node.data.color
+        new go.Binding('fill', 'color')),
+      $(go.TextBlock,
+        {
+          margin: 8,
+          position: new go.Point(15, 30)
+          // editable: true,
+        },  // some room around the text
+        new go.Binding('text').makeTwoWay()
+      ),
+
+      makePort("T", go.Spot.Top, go.Spot.TopSide, true, true),
+      makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
+      makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
+      makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, true)
+    ));
+
+  diagram.nodeTemplateMap.add("root",
+    $(go.Node, go.Panel.Spot,  // the Shape will go around the TextBlock
+      new go.Binding('location', 'loc', go.Point.parse).makeTwoWay(go.Point.stringify),
+      {
+        avoidableMargin: new go.Margin(2, 2, 2, 2),
+        click: clickNode,
+        locationSpot: go.Spot.Center
+      },
+      $(go.Shape, 'Diamond',
+        {
+          name: 'SHAPE',
+          fill: '#222222',
+          strokeWidth: 0,
+          width: 90,
+          height: 90,
+          fromLinkable: true, fromLinkableDuplicates: true,
+          toLinkable: true, toLinkableDuplicates: true
+        }),
+      $(go.TextBlock,
+        {
+          margin: 8,
+          position: new go.Point(15, 30),
+          stroke: "white"
+          // editable: true,
+        },  // some room around the text
+        new go.Binding('text').makeTwoWay()
+      ),
+
+      makePort("T", go.Spot.Top, go.Spot.TopSide, true, false),
+      makePort("L", go.Spot.Left, go.Spot.LeftSide, true, false),
+      makePort("R", go.Spot.Right, go.Spot.RightSide, true, false),
+      makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, false)
+    ));
 
   diagram.linkTemplate =
     $(go.Link,  // the whole link panel
@@ -129,11 +184,7 @@ function initDiagram(clickNode) {
         routing: go.Link.AvoidsNodes,
         curve: go.Link.JumpOver,
         corner: 5, toShortLength: 4,
-        relinkableFrom: true,
-        relinkableTo: true,
-        reshapable: false,
-        resegmentable: false,
-        selectionAdorned: false
+        fromPortId: "B"
       },
       new go.Binding("points").makeTwoWay(),
       $(go.Shape,  // the highlight shape, normally transparent
@@ -163,7 +214,6 @@ function initDiagram(clickNode) {
     $(go.Panel, "Grid",  // or "Grid"
       { gridCellSize: new go.Size(20, 20) },
       $(go.Shape, "LineH", { interval: 1, strokeDashArray: [1, 16] }),
-      // $(go.Shape, "LineV", { interval: 1, strokeDashArray: [1, 16] }),
     );
 
   return diagram;
@@ -173,8 +223,30 @@ function initDiagram(clickNode) {
  * This function handles any changes to the GoJS model.
  * It is here that you would make any updates to your React state, which is dicussed below.
  */
-function handleModelChange(changes) {
+function handleModelChange(changes, diagramRef, setLinks, previousLinks, isNewLinkAdded) {
   // alert('GoJS model changed!');
+  if (!diagramRef.current) return;
+  let myDiagram = diagramRef.current.getDiagram();
+
+}
+
+function catchLinkEvent(event, diagramRef, addLink) {
+  if (!diagramRef.current) return;
+  let myDiagram = diagramRef.current.getDiagram();
+  let linkObj = event.subject;
+  let link = linkObj.part.data;
+  if (link.toPort === "B") {
+    // make it so that any node connecting to the bottom would stay below
+    let to = link.to;
+
+    myDiagram.model.setDataProperty(linkObj.data, "to", link.from);
+    myDiagram.model.setDataProperty(linkObj.data, "from", to);
+    myDiagram.model.setDataProperty(linkObj.data, "toPort", link.fromPort);
+    myDiagram.model.setDataProperty(linkObj.data, "fromPort", "B");
+    // console.log("caught the link", link)
+  }
+  addLink(link) // update the state for links
+  // it won't get in an endless loop, because rerendering the component with the new links is not a link draw event
 }
 
 function highlight(node, diagramRef) {
@@ -192,15 +264,21 @@ function highlight(node, diagramRef) {
   myDiagram.skipsUndoManager = oldskips;
 }
 
+const initLinks = [
+  { key: -1, from: 0, to: 1 }
+]
+
 // render function...
 export default function Diagram() {
 
   const [nodes, setNodes] = useState([
-    { key: 0, text: 'Alpha', color: 'lightblue' },
-    { key: 1, text: 'Beta', color: 'orange' },
-    { key: 2, text: 'Gamma', color: 'lightgreen' },
-    { key: 3, text: 'Delta', color: 'pink' }
+    { key: 0, text: 'DonKey', color: 'lightblue', category: "root" },
+    { key: 1, text: 'OIHSDG', color: 'orange', category: "action" },
+    // { key: 2, text: 'Gamma', color: 'lightgreen' },
+    // { key: 3, text: 'Delta', color: 'pink' }
   ]);
+
+  const [links, setLinks] = useState(initLinks)
 
   const [isPopupVisible, setIsPopupVisible] = useState(false);
 
@@ -210,9 +288,13 @@ export default function Diagram() {
 
   const isNewNodeAdded = useHasChanged(nodes)
 
+  const isNewLinkAdded = useHasChanged(links)
+
   const diagramRef = useRef(null);
 
   const addNode = (newNode) => setNodes(nodes => [...nodes, newNode])
+
+  const addLink = (newLink) => setLinks(links => [...links, newLink])
 
   const changeNode = (newNode) => {
     let indexOfNodeToReplace = nodes.findIndex(node => node.key === newNode.key);
@@ -340,7 +422,6 @@ export default function Diagram() {
   }, []);
 
   useEffect(() => {
-
     if (diagramRef.current && isNewNodeAdded) {
       setTimeout(() => {
         let myDiagram = diagramRef.current.getDiagram();
@@ -374,10 +455,11 @@ export default function Diagram() {
         />}
       <ReactDiagram
         ref={diagramRef}
-        initDiagram={() => initDiagram(clickNode)}
+        initDiagram={() => initDiagram(clickNode, (event) => { catchLinkEvent(event, diagramRef, addLink) })}
         divClassName='diagram-component'
         nodeDataArray={nodes}
-        onModelChange={handleModelChange}
+        linkDataArray={links}
+        onModelChange={(changes) => { handleModelChange(changes, diagramRef, setLinks, links, isNewLinkAdded) }}
       />
     </div>
   );
