@@ -13,16 +13,18 @@ var key = 4;
 // ...
 
 function makePort(name, align, spot, output, input) {
+  let horizontal = align.equals(go.Spot.Top) || align.equals(go.Spot.Bottom);
   const $ = go.GraphObject.make;
   // the port is basically just a small transparent circle
   return $(go.Shape, "Circle",
     {
       desiredSize: new go.Size(7, 7),
+      stretch: (horizontal ? go.GraphObject.Horizontal : go.GraphObject.Vertical),
       alignment: align,  // align the port on the main Shape
       alignmentFocus: align,  // just inside the Shape
       portId: name,  // declare this object to be a "port"
       fromSpot: spot, toSpot: spot,  // declare where links may connect at this port
-      fromLinkable: true, toLinkable: true,  // declare whether the user may draw links to/from here
+      fromLinkable: output, toLinkable: input,  // declare whether the user may draw links to/from here
       cursor: "pointer",  // show a different cursor to indicate potential link point
       fromEndSegmentLength: 30, // make link line turn to connector only from the distance not closer than 30px
       toEndSegmentLength: 30
@@ -44,20 +46,25 @@ function initDiagram(clickNode) {
         'undoManager.isEnabled': true,  // must be set to allow for model change listening
         // 'undoManager.maxHistoryLength': 0,  // uncomment disable undo/redo functionality
         'clickCreatingTool.archetypeNodeData': { text: 'new node', color: 'lightblue' },
-        allowMove: false,
+        // allowMove: false,
         model: $(go.GraphLinksModel,
           {
             linkFromPortIdProperty: "fromPort",  // required information:
             linkToPortIdProperty: "toPort",
             linkKeyProperty: 'key'  // IMPORTANT! must be defined for merges and data sync when using GraphLinksModel
           }),
-        layout: $(go.LayeredDigraphLayout, {
-          // angle: 90,
+        layout: $(go.TreeLayout, {
+          angle: 270,
+          arrangementSpacing: new go.Size(50, 50),
+          nodeSpacing: 50,
+          setsPortSpot: false,
+          setsChildPortSpot: false
           // spacing: new go.Size(30, 30),
-          // arrangementSpacing: new go.Size(40, 40),
-          columnSpacing: 30,
-          layerSpacing: 30,
+          // setsPortSpots: false,
+          // columnSpacing: 30,
+          // layerSpacing: 30, 
           // sorting: go.TreeLayout.SortingReverse
+          // wrappingColumn: 2
         })
         // layout: $(go.LayeredDigraphLayout)
       });
@@ -69,6 +76,7 @@ function initDiagram(clickNode) {
       {
         avoidableMargin: new go.Margin(2, 2, 2, 2),
         click: clickNode,
+        locationSpot: go.Spot.Center
       },
       $(go.Shape, 'Diamond',
         {
@@ -92,58 +100,64 @@ function initDiagram(clickNode) {
         new go.Binding('text').makeTwoWay()
       ),
 
-      makePort("T", go.Spot.Top, go.Spot.TopSide, false, true),
+      makePort("T", go.Spot.Top, go.Spot.TopSide, true, true),
       makePort("L", go.Spot.Left, go.Spot.LeftSide, true, true),
       makePort("R", go.Spot.Right, go.Spot.RightSide, true, true),
-      makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, false)
+      makePort("B", go.Spot.Bottom, go.Spot.BottomSide, true, true)
     );
 
-  diagram.linkTemplate =
-    $(go.Link,
-      {
-        routing: go.Link.AvoidsNodes,
-        // curve: go.Link.JumpOver,
-        corner: 5,
-        relinkableFrom: true,
-        relinkableTo: true
-      },
-      $(go.Shape, // the link's path shape
-        { strokeWidth: 3, stroke: "#555" }),
-      $(go.Shape,
-        { toArrow: "Standard", stroke: null })
-    );
 
   // diagram.linkTemplate =
-  //   $(go.Link,  // the whole link panel
-  //     { selectable: true },
-  //     { relinkableFrom: true, relinkableTo: true, reshapable: true },
+  //   $(go.Link,
   //     {
   //       routing: go.Link.AvoidsNodes,
-  //       curve: go.Link.JumpOver,
+  //       // curve: go.Link.JumpOver,
   //       corner: 5,
+  //       relinkableFrom: true,
+  //       relinkableTo: true, 
   //       toShortLength: 4
   //     },
-  //     new go.Binding("points").makeTwoWay(),
-  //     $(go.Shape,  // the link path shape
-  //       { isPanelMain: true, strokeWidth: 2 }),
-  //     $(go.Shape,  // the arrowhead
-  //       { toArrow: "Standard", stroke: null }),
-  //     $(go.Panel, "Auto",
-  //       new go.Binding("visible", "isSelected").ofObject(),
-  //       $(go.Shape, "RoundedRectangle",  // the link shape
-  //         { fill: "#F8F8F8", stroke: null }),
-  //       $(go.TextBlock,
-  //         {
-  //           textAlign: "center",
-  //           font: "10pt helvetica, arial, sans-serif",
-  //           stroke: "#919191",
-  //           margin: 2,
-  //           minSize: new go.Size(10, NaN),
-  //           editable: true
-  //         },
-  //         new go.Binding("text").makeTwoWay())
-  //     )
+  //     $(go.Shape, // the link's path shape
+  //       { strokeWidth: 3, stroke: "#555" }),
+  //     $(go.Shape,
+  //       { toArrow: "Standard", stroke: null })
   //   );
+
+  diagram.linkTemplate =
+    $(go.Link,  // the whole link panel
+      {
+        routing: go.Link.AvoidsNodes,
+        curve: go.Link.JumpOver,
+        corner: 5, toShortLength: 4,
+        relinkableFrom: true,
+        relinkableTo: true,
+        reshapable: false,
+        resegmentable: false,
+        selectionAdorned: false
+      },
+      new go.Binding("points").makeTwoWay(),
+      $(go.Shape,  // the highlight shape, normally transparent
+        { isPanelMain: true, strokeWidth: 8, stroke: "transparent", name: "HIGHLIGHT" }),
+      $(go.Shape,  // the link path shape
+        { isPanelMain: true, stroke: "gray", strokeWidth: 2 },
+        new go.Binding("stroke", "isSelected", function (sel) { return sel ? "dodgerblue" : "gray"; }).ofObject()),
+      $(go.Shape,  // the arrowhead
+        { toArrow: "standard", strokeWidth: 0, fill: "gray" }),
+      $(go.Panel, "Auto",  // the link label, normally not visible
+        { visible: false, name: "LABEL", segmentIndex: 2, segmentFraction: 0.5 },
+        new go.Binding("visible", "visible").makeTwoWay(),
+        $(go.Shape, "RoundedRectangle",  // the label shape
+          { fill: "#F8F8F8", strokeWidth: 0 }),
+        $(go.TextBlock, "Yes",  // the label
+          {
+            textAlign: "center",
+            font: "10pt helvetica, arial, sans-serif",
+            stroke: "#333333",
+            editable: true
+          },
+          new go.Binding("text").makeTwoWay())
+      )
+    );
 
   diagram.grid =
     $(go.Panel, "Grid",  // or "Grid"
@@ -221,10 +235,14 @@ export default function Diagram() {
     if (!diagramRef.current) return;
     let myDiagram = diagramRef.current.getDiagram();
     if (event === undefined) event = myDiagram.lastInput;
-    showPopup(obj, myDiagram)
+    showPopup(obj)
   }
 
-  const showPopup = (obj, diagram) => {
+  // const clickDiagram = (event, obj) => {
+  //   setIsPopupVisible(false);
+  // }
+
+  const showPopup = (obj) => {
     if (obj !== null) {
       let node = obj.part;
       updateInfoBox(node.location, node.data);
@@ -327,8 +345,8 @@ export default function Diagram() {
       setTimeout(() => {
         let myDiagram = diagramRef.current.getDiagram();
         let obj = myDiagram.findNodeForKey(key - 1);
-        showPopup(obj, myDiagram);
-      }, 500)
+        showPopup(obj);
+      }, 500) //TODO try to remove setTimeout
     }
 
 
